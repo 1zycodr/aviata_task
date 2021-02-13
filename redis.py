@@ -1,6 +1,9 @@
 import aioredis
 
+
 class RedisConnection(object):
+    """Singleton async Redis Class"""
+
     obj = None
     connection = None
 
