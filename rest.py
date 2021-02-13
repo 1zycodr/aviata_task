@@ -1,10 +1,11 @@
 import requests
 import asyncio
 import json
-import aioredis
 import aiocron
 from datetime import date
 from dateutil.relativedelta import relativedelta
+from redis import RedisConnection
+
 
 today = date.today()
 month_day = today + relativedelta(months =+ 1)
@@ -16,12 +17,12 @@ directions = [
 
 
 async def update_direction(con, from_city, to_city):
-    await con.set(f"{from_city}-{to_city}", 'test')
+    await con.set(f"{from_city}-{to_city}", 'test2')
 
 
-@aiocron.crontab('0 0 0 * *')
+# @aiocron.crontab('0 0 0 * *')
 async def update_redis():
-    con = await aioredis.create_redis('redis://localhost')
+    con = (await RedisConnection()).connection
 
     tasks = []
 
