@@ -15,7 +15,7 @@ from autoupdate import (
 async def index(request: web.Request) -> web.Response:
     return {}
 
-# /api/flights?from={dir}&to={dir}
+# /api/flights?from_city={dir}&to_city={dir}
 # /api/flight_detail/{flight}
 
 
