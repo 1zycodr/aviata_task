@@ -1,13 +1,11 @@
 from aiohttp import web
-import aiohttp_jinja2
-import jinja2
-import aioreloader
+import aiohttp_jinja2, jinja2
 import json
 from pathlib import Path
 from autoupdate import autoupdate_redis
-from autoupdate import (
-    RedisConnection, 
-    directions, locations
+from redis import RedisConnection
+from settings import (
+    locations, directions
 )
 
 
@@ -16,23 +14,22 @@ async def index(request: web.Request) -> web.Response:
     return {}
 
 # /api/flights?from_city={dir}&to_city={dir}
-# /api/flight_detail/{flight}
 
-
-async def api_flights(request: web.Request) -> web.Response:
+async def flights(request: web.Request) -> web.Response:
+    # validate request.query:
     try: 
         from_city = request.query['from_city']
         if from_city not in locations:
             raise ValueError
     except KeyError:
-        return web.Response(status=500, body=json.dumps({
+        return web.Response(status=400, body=json.dumps({
             'status' : 'error',
             'data' : {
                 'from_city' : 'Parameter from_city is a required field, but it was not given.'
             }
         }))
     except ValueError:
-        return web.Response(status=500, body=json.dumps({
+        return web.Response(status=400, body=json.dumps({
             'status' : 'error',
             'data' : {
                 'from_city' : f'Not recognized location: `{from_city}`'
@@ -45,24 +42,25 @@ async def api_flights(request: web.Request) -> web.Response:
         if to_city not in locations:
             raise ValueError
     except KeyError:
-        return web.Response(status=500, body=json.dumps({
+        return web.Response(status=400, body=json.dumps({
             'status' : 'error',
             'data' : {
                 'to_city' : 'Parameter to_city is a required field, but it was not given.'
             }
         }))
     except ValueError:
-        return web.Response(status=500, body=json.dumps({
+        return web.Response(status=400, body=json.dumps({
             'status' : 'error',
             'data' : {
                 'to_city' : f'Not recognized location: `{to_city}`'
             }
         }))
 
+    # validate direction
     direction = f"{from_city}-{to_city}"
 
     if direction not in directions:
-        return web.Response(status=500, body=json.dumps({
+        return web.Response(status=400, body=json.dumps({
             'status' : 'error',
             'data' : {
                 'message' : f'There are no flights between these locations: `{from_city}`, `{to_city}`'
@@ -70,9 +68,16 @@ async def api_flights(request: web.Request) -> web.Response:
         }))
 
     redis_con = (await RedisConnection()).connection
+
+    try:
+        flights = (await redis_con.get(direction)).decode('utf-8')
+    except AttributeError:
+        # key do not exist yet
+        flights = None
+
     data = {
         'status' : 'success',
-        'data' : (await redis_con.get(direction)).decode('utf-8')
+        'data' : flights 
     }
     
     return web.Response(status=200, body=json.dumps(data))
@@ -80,7 +85,7 @@ async def api_flights(request: web.Request) -> web.Response:
 
 app = web.Application()
 app.router.add_get('/', index)
-app.router.add_post('/api/flights', api_flights)
+app.router.add_post('/api/flights', flights)
 
 
 templates_path = str(Path(__file__).resolve().parent) + '/templates'
@@ -91,6 +96,8 @@ aiohttp_jinja2.setup(
 
 
 if __name__ == '__main__':
-    aioreloader.start()
+    # running scheduled task
     autoupdate_redis.start()
+
+    # running server
     web.run_app(app, host='localhost')
