@@ -3,12 +3,15 @@ import aiohttp_jinja2
 import jinja2
 import json
 from pathlib import Path
-from main import autoupdate_redis
 from redis import RedisConnection
+from utils import (
+    autoupdate_redis,
+    get_err_required_mess,
+    get_err_not_recognized_mess
+)
 from settings import (
     locations, directions
 )
-
 
 @aiohttp_jinja2.template('index.html')
 async def index(request: web.Request) -> web.Response:
@@ -27,15 +30,14 @@ async def flights(request: web.Request) -> web.Response:
             'status': 'error',
             'data': {
                 'from_city':
-                    'Parameter from_city is a required field,\
- but it was not given.'
+                    get_err_required_message('from_city')
             }
         }))
     except ValueError:
         return web.Response(status=400, body=json.dumps({
             'status': 'error',
             'data': {
-                'from_city': f'Not recognized location: `{from_city}`'
+                'from_city': get_err_not_recognized_mess(from_city)
             }
         }))
 
@@ -48,15 +50,14 @@ async def flights(request: web.Request) -> web.Response:
             'status': 'error',
             'data': {
                 'to_city':
-                    'Parameter to_city is a required field,\
- but it was not given.'
+                    get_err_required_message('to_city')
             }
         }))
     except ValueError:
         return web.Response(status=400, body=json.dumps({
             'status': 'error',
             'data': {
-                'to_city': f'Not recognized location: `{to_city}`'
+                'to_city': get_err_not_recognized_mess(to_city)
             }
         }))
 
